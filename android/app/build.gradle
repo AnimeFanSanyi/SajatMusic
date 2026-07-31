@@ -108,8 +108,8 @@ android {
     packaging {
         jniLibs {
             pickFirsts += [
-                '**/libreact_nativemodule_core.so',
-                '**/libc++_shared.so' // Common secondary collision, good to add preemptively
+                '**/libturbomodulejsijni.so',
+                '**/libc++_shared.so'
             ]
         }
     }

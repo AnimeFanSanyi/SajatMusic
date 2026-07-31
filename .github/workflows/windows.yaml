@@ -19,6 +19,12 @@ jobs:
       - name: Force Legacy Peer Deps Globally
         run: npm config set legacy-peer-deps true
 
+      - name: Setup MSBuild
+        uses: microsoft/setup-msbuild@v2
+
+      - name: Install Windows Dependencies
+        run: npx react-native-windows-init --overwrite
+
       - name: Install Dependencies
         run: npm install
 
