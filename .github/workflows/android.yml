@@ -10,20 +10,37 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+
       - uses: actions/setup-node@v4
         with:
           node-version: 18
           cache: 'npm'
+
       - run: npm install --legacy-peer-deps
+
       - uses: actions/setup-java@v4
         with:
           distribution: 'zulu'
           java-version: '17'
-      - run: |
+
+      - name: Decode Base64 Keystore
+        run: |
+          mkdir -p android/app
+          echo "${{ secrets.KEYSTORE_BASE64 }}" | tr -d '\r\n ' | base64 --decode > android/app/my-upload-key.keystore
+
+      - name: Build Signed Release APK
+        env:
+          KEYSTORE_FILE: my-upload-key.keystore
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+        run: |
           cd android
           chmod +x gradlew
           ./gradlew assembleRelease --no-daemon
-      - uses: actions/upload-artifact@v4
+
+      - name: Upload Signed Android APK
+        uses: actions/upload-artifact@v4
         with:
-          name: SajatMusic-Android-APK
+          name: SajatMusic-Android-Signed-APK
           path: android/app/build/outputs/apk/release/app-release.apk

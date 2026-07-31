@@ -10,14 +10,19 @@ jobs:
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
+
       - uses: actions/setup-node@v4
         with:
           node-version: 18
           cache: 'npm'
+
       - run: npm install --legacy-peer-deps
+      - run: npm install react-native-windows@0.75.0 --legacy-peer-deps
       - run: npx react-native-windows-init --overwrite
       - run: npx react-native run-windows --logging --configuration Release --no-launch
-      - uses: actions/upload-artifact@v4
+
+      - name: Upload Windows Bundle
+        uses: actions/upload-artifact@v4
         with:
           name: SajatMusic-Windows-Installer
           path: windows/x64/Release/
