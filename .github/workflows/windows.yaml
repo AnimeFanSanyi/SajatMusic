@@ -29,7 +29,7 @@ jobs:
         run: npx react-native-windows-init --overwrite --no-telemetry
 
       - name: Build Windows App (Release)
-        run: npx react-native run-windows --logging --configuration Release --no-launch
+        run: npx react-native run-windows --logging --release --no-launch
 
       - name: Upload Windows Bundle
         uses: actions/upload-artifact@v4
