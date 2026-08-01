@@ -35,7 +35,7 @@ jobs:
       - name: Install RNW C++ Dependencies
         run: |
           Set-ExecutionPolicy Unrestricted -Scope Process -Force
-          & "node_modules/react-native-windows/scripts/rnw-dependencies.ps1" -NoPrompt
+          & "node_modules/react-native-windows/scripts/rnw-dependencies.ps1" -Install -NoPrompt
         shell: powershell
 
       - name: Build Windows App (Release)
