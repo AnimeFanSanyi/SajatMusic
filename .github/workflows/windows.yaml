@@ -3,6 +3,7 @@ name: Build Windows App
 on:
   push:
     branches: [ main ]
+    if: false # Disable automatic builds on push to main
   workflow_dispatch:
 
 jobs:
