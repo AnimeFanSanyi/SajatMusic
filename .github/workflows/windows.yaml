@@ -7,7 +7,8 @@ on:
 
 jobs:
   build-windows:
-    runs-on: windows-latest
+    # 1. FIXED: Changed from 'windows-latest' to 'windows-2022' to prevent MSVC experimental coroutine errors
+    runs-on: windows-2022
     steps:
       - uses: actions/checkout@v4
 
@@ -33,9 +34,9 @@ jobs:
       - name: Restore NuGet Packages
         run: nuget restore windows/SajatMusic.sln
 
-      # Build Windows App (Release)
+      # 2. FIXED: Added /p:DefineConstants="_SILENCE_EXPERIMENTAL_COROUTINE_DEPRECATION_WARNINGS" flag
       - name: Build Windows App (Release)
-        run: msbuild windows/SajatMusic.sln /p:Configuration=Release /p:Platform=x64 /p:AppxBundle=Always /p:AppxPackageSigningEnabled=false /p:WindowsTargetPlatformVersion=10.0
+        run: msbuild windows/SajatMusic.sln /p:Configuration=Release /p:Platform=x64 /p:AppxBundle=Always /p:AppxPackageSigningEnabled=false /p:WindowsTargetPlatformVersion=10.0 /p:DefineConstants="_SILENCE_EXPERIMENTAL_COROUTINE_DEPRECATION_WARNINGS"
 
       # Upload Artifacts
       - name: Upload Windows Bundle
