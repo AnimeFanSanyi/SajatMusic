@@ -106,15 +106,17 @@ android {
         }
     }
 
-    jniLibs {
-        pickFirsts += [
-            '**/libreact_nativemodule_core.so',
-            '**/libturbomodulejsijni.so',
-            '**/libfbjni.so',
-            '**/libjsi.so',
-            '**/libreactnative.so'
+    packagingOptions {
+        jniLibs {
+            pickFirsts += [
+                '**/libreact_nativemodule_core.so',
+                '**/libturbomodulejsijni.so',
+                '**/libfbjni.so',
+                '**/libjsi.so',
+                '**/libreactnative.so'
             ]
         }
+    }
 }
 
 dependencies {
