@@ -11,7 +11,6 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      # 1. Bumped Node version to 20 to clear engine warnings
       - uses: actions/setup-node@v4
         with:
           node-version: 20
@@ -20,20 +19,24 @@ jobs:
       - name: Force Legacy Peer Deps Globally
         run: npm config set legacy-peer-deps true
 
-      # 2. MUST install dependencies FIRST so node_modules exists
       - name: Install Dependencies
         run: npm install
 
-      # 3. Install React Native Windows package
       - name: Install React Native Windows Package
         run: npm install react-native-windows@0.75.20
 
       - name: Setup MSBuild
         uses: microsoft/setup-msbuild@v2
 
-      # 4. Now init runs ONLY ONCE, after node_modules & react-native exist
       - name: Initialize Windows Native Project
         run: npx react-native-windows-init --overwrite --no-telemetry
+
+      # NEW STEP: Automatically installs missing C++ VCTools / Visual Studio components
+      - name: Install RNW C++ Dependencies
+        run: |
+          Set-ExecutionPolicy Unrestricted -Scope Process -Force
+          & "node_modules/react-native-windows/scripts/rnw-dependencies.ps1" -NoPrompt
+        shell: powershell
 
       - name: Build Windows App (Release)
         run: npx react-native run-windows --logging --release --no-launch
