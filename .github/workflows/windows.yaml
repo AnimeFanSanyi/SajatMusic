@@ -31,10 +31,11 @@ jobs:
       - name: Initialize Windows Native Project
         run: npx react-native-windows-init --overwrite --no-telemetry
 
+      # Installs all required C++ VCTools and UWP dependencies for RNW
       - name: Install Visual Studio C++ Workloads
         run: |
           $installer = "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vs_installer.exe"
-          Start-Process $installer -ArgumentList 'modify --installPath "C:\Program Files\Microsoft Visual Studio\2022\Enterprise" --add Microsoft.VisualStudio.Workload.NativeDesktop --add Microsoft.VisualStudio.Component.VC.Tools.x86.x64 --quiet --norestart' -Wait
+          Start-Process $installer -ArgumentList 'modify --installPath "C:\Program Files\Microsoft Visual Studio\2022\Enterprise" --add Microsoft.VisualStudio.Workload.NativeDesktop --add Microsoft.VisualStudio.Workload.Universal --add Microsoft.VisualStudio.Component.VC.Tools.x86.x64 --add Microsoft.VisualStudio.ComponentGroup.UWP.VC --includeRecommended --quiet --norestart' -Wait
         shell: powershell
 
       - name: Build Windows App (Release)
