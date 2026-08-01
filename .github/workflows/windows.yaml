@@ -22,18 +22,22 @@ jobs:
       - name: Install Dependencies
         run: npm install
 
-      - name: Install React Native Windows Package
-        run: npm install react-native-windows@0.75.20
-
+      # Setup MSBuild and NuGet
       - name: Setup MSBuild
         uses: microsoft/setup-msbuild@v2
 
-      - name: Initialize Windows Native Project
-        run: npx react-native-windows-init --overwrite --no-telemetry
+      - name: Setup NuGet
+        uses: NuGet/setup-nuget@v2
 
+      # Restore NuGet packages for the React Native Windows solution
+      - name: Restore NuGet Packages
+        run: nuget restore windows/SajatMusic.sln
+
+      # Build Windows App (Release)
       - name: Build Windows App (Release)
         run: msbuild windows/SajatMusic.sln /p:Configuration=Release /p:Platform=x64 /p:AppxBundle=Always /p:AppxPackageSigningEnabled=false /p:WindowsTargetPlatformVersion=10.0
 
+      # Upload Artifacts
       - name: Upload Windows Bundle
         uses: actions/upload-artifact@v4
         with:

@@ -105,21 +105,16 @@ android {
             proguardFiles getDefaultProguardFile("proguard-android.txt"), "proguard-rules.pro"
         }
     }
-    android {
-    // ... existing settings ...
 
-    packaging {
-        jniLibs {
-            pickFirsts += [
-                '**/libreact_nativemodule_core.so',
-                '**/libturbomodulejsijni.so',
-                '**/libfbjni.so',
-                '**/libjsi.so',
-                '**/libreactnative.so'
+    jniLibs {
+        pickFirsts += [
+            '**/libreact_nativemodule_core.so',
+            '**/libturbomodulejsijni.so',
+            '**/libfbjni.so',
+            '**/libjsi.so',
+            '**/libreactnative.so'
             ]
         }
-    }
-}
 }
 
 dependencies {
