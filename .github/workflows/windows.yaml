@@ -41,13 +41,11 @@ jobs:
       - name: Build Windows App (Release)
         run: npx react-native run-windows --arch x64 --release --no-packager --logging
 
-      # Compress Windows Build Output into a Zip file (with process cleanup)
+      # Compress using 7-Zip with -ssw (Ignores open file locks)
       - name: Zip Windows Release Files
         shell: powershell
         run: |
-          Get-Process -Name node, MSBuild, vctip -ErrorAction SilentlyContinue | Stop-Process -Force
-          Start-Sleep -Seconds 3
-          Compress-Archive -Path windows/x64/Release/* -DestinationPath SajatMusic-Windows.zip -Force
+          7z a -ssw -r SajatMusic-Windows.zip .\windows\x64\Release\*
 
       # Upload to GitHub Releases
       - name: Publish Windows App to GitHub Release
