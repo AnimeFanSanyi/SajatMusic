@@ -8,7 +8,6 @@ on:
 
 jobs:
   build-windows:
-    # 1. FIXED: Changed from 'windows-latest' to 'windows-2022' to prevent MSVC experimental coroutine errors
     runs-on: windows-2022
     steps:
       - uses: actions/checkout@v4
@@ -31,13 +30,16 @@ jobs:
       - name: Setup NuGet
         uses: NuGet/setup-nuget@v2
 
-      # Restore NuGet packages for the React Native Windows solution
-      - name: Restore NuGet Packages
-        run: nuget restore windows/SajatMusic.sln
+      # Restore solution & nested node_modules packages to windows/packages
+      - name: Restore All NuGet Packages
+        shell: powershell
+        run: |
+          nuget restore windows/SajatMusic.sln -PackagesDirectory windows/packages
+          Get-ChildItem -Path node_modules -Filter packages.config -Recurse | ForEach-Object { nuget restore $_.FullName -PackagesDirectory windows/packages }
 
-      # 2. FIXED: Added /p:DefineConstants="_SILENCE_EXPERIMENTAL_COROUTINE_DEPRECATION_WARNINGS" flag
+      # Bundle and build via React Native CLI (resolves async-storage & native deps automatically)
       - name: Build Windows App (Release)
-        run: msbuild windows/SajatMusic.sln /p:Configuration=Release /p:Platform=x64 /p:AppxBundle=Always /p:AppxPackageSigningEnabled=false /p:WindowsTargetPlatformVersion=10.0 /p:DefineConstants="_SILENCE_EXPERIMENTAL_COROUTINE_DEPRECATION_WARNINGS"
+        run: npx react-native run-windows --arch x64 --release --no-packager --logging
 
       # Upload Artifacts
       - name: Upload Windows Bundle
