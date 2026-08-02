@@ -90,7 +90,7 @@ jobs:
       - name: Build Windows App Package (Release)
         run: npx react-native run-windows --arch x64 --release --no-packager --logging
 
-      # Create Code Signing Certificate matching Package.appxmanifest and sign MSIX via SignTool
+      # Create Certificate with Code Signing EKU & Basic Constraints extensions, then Sign MSIX
       - name: Sign MSIX Package with Security Certificate
         shell: powershell
         run: |
@@ -107,8 +107,8 @@ jobs:
           $publisher = $manifest.Package.Identity.Publisher
           Write-Host "Using manifest publisher: $publisher"
 
-          # 2. Create Code Signing certificate matching exact publisher (CN=pokol)
-          $cert = New-SelfSignedCertificate -Type CodeSigningCert -Subject $publisher -FriendlyName "SajatMusic" -CertStoreLocation "Cert:\CurrentUser\My"
+          # 2. Create Code Signing certificate with both EKU (1.3.6.1.5.5.7.3.3) AND Basic Constraints (2.5.29.19)
+          $cert = New-SelfSignedCertificate -Type Custom -Subject $publisher -KeyUsage DigitalSignature -FriendlyName "SajatMusic" -CertStoreLocation "Cert:\CurrentUser\My" -TextExtension @("2.5.29.37={text}1.3.6.1.5.5.7.3.3", "2.5.29.19={text}")
 
           # 3. Export public .cer file into installer folder for Add-AppDevPackage.ps1
           $cerPath = "$targetFolder\SajatMusic.cer"
