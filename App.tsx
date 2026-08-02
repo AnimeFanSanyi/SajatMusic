@@ -13,14 +13,7 @@ import {
 } from 'react-native';
 import * as RNFS from 'react-native-fs';
 
-// Ambient declaration to resolve React Native TypeScript global window types
 declare const window: any;
-
-// Root directory path target: /AppRootFolder/Playlists
-const ROOT_PATH =
-  Platform.OS === 'windows'
-    ? `${RNFS.DocumentDirectoryPath}\\AppRootFolder\\Playlists`
-    : `${RNFS.ExternalStorageDirectoryPath}/Music/AppRootFolder/Playlists`;
 
 interface Track {
   id: string;
@@ -30,37 +23,51 @@ interface Track {
 }
 
 export default function App(): JSX.Element {
+  // --- SAFE PATH GENERATOR ---
+  const getRootPath = () => {
+    try {
+      if (Platform.OS === 'windows') {
+        const docDir = RNFS.DocumentDirectoryPath || 'C:\\AppRootFolder\\Playlists';
+        return `${docDir}\\AppRootFolder\\Playlists`;
+      }
+      return `${RNFS.ExternalStorageDirectoryPath || ''}/Music/AppRootFolder/Playlists`;
+    } catch {
+      return 'C:\\AppRootFolder\\Playlists';
+    }
+  };
+
+  const rootPath = getRootPath();
+
   // --- STATES ---
   const [tracks, setTracks] = useState<Track[]>([]);
   const [queue, setQueue] = useState<Track[]>([]);
   const [currentTrack, setCurrentTrack] = useState<Track | null>(null);
   const [isPlaying, setIsPlaying] = useState<boolean>(false);
 
-  // 3-Tier Search States
+  // Search & Modal States
   const [globalSearchQuery, setGlobalSearchQuery] = useState('');
-  const [playlistSearchQuery, setPlaylistSearchQuery] = useState('');
   const [queueSearchQuery, setQueueSearchQuery] = useState('');
-
-  // UI & Modal States
   const [isGlobalSearchActive, setIsGlobalSearchActive] = useState(false);
   const [isPlaylistModalOpen, setIsPlaylistModalOpen] = useState(false);
   const [isInputFocused, setIsInputFocused] = useState(false);
 
   const flatListRef = useRef<FlatList>(null);
 
-  // --- 1. AUTO-DIRECTORY SCANNER ---
+  // --- AUTO-DIRECTORY SCANNER ---
   useEffect(() => {
     scanDirectory();
   }, []);
 
   const scanDirectory = async () => {
     try {
-      const exists = await RNFS.exists(ROOT_PATH);
+      if (!RNFS || !RNFS.exists) return;
+
+      const exists = await RNFS.exists(rootPath);
       if (!exists) {
-        await RNFS.mkdir(ROOT_PATH);
+        await RNFS.mkdir(rootPath);
       }
 
-      const playlistItems = await RNFS.readDir(ROOT_PATH);
+      const playlistItems = await RNFS.readDir(rootPath);
       const playlistFolders = playlistItems.filter((item) => item.isDirectory());
 
       let loadedTracks: Track[] = [];
@@ -84,11 +91,11 @@ export default function App(): JSX.Element {
       setTracks(loadedTracks);
       setQueue(loadedTracks.slice(0, 10));
     } catch (err) {
-      console.error('Directory scan error:', err);
+      console.warn('Directory scan caught:', err);
     }
   };
 
-  // --- 2. SAFE CHARACTER FAULT HANDLER ---
+  // --- SAFE CHARACTER FAULT HANDLER ---
   const safeRenderTitle = (rawTitle: string): string => {
     try {
       const decoded = decodeURIComponent(rawTitle);
@@ -98,12 +105,12 @@ export default function App(): JSX.Element {
         }
       }
       return decoded;
-    } catch (e) {
+    } catch {
       return `[Encoding Error @ Char #0]`;
     }
   };
 
-  // --- 3. KEYBOARD SHORTCUTS (SPACEBAR & ESCAPE) ---
+  // --- KEYBOARD SHORTCUTS ---
   useEffect(() => {
     if (Platform.OS === 'windows') {
       const handleKeyDown = (event: any) => {
@@ -124,7 +131,7 @@ export default function App(): JSX.Element {
     }
   }, [isInputFocused]);
 
-  // --- 4. PURE FILENAME FISHER-YATES SHUFFLE ---
+  // --- QUEUE SHUFFLE ---
   const shuffleQueue = (trackList: Track[]) => {
     const shuffled = [...trackList];
     for (let i = shuffled.length - 1; i > 0; i--) {
@@ -134,7 +141,6 @@ export default function App(): JSX.Element {
     setQueue(shuffled.slice(0, 10));
   };
 
-  // --- 5. REAL-TIME QUEUE AUTO-SCROLL ON SUBMIT ---
   const handleQueueSearchSubmit = () => {
     if (!queueSearchQuery.trim()) return;
     const matchIndex = queue.findIndex((t) =>
@@ -172,7 +178,7 @@ export default function App(): JSX.Element {
         </View>
       </View>
 
-      {/* QUEUE SEARCH & SHUFFLE CONTROLS */}
+      {/* QUEUE SEARCH & SHUFFLE */}
       <View style={styles.subControlBar}>
         <TextInput
           style={styles.subSearchInput}
@@ -189,36 +195,43 @@ export default function App(): JSX.Element {
         </TouchableOpacity>
       </View>
 
-      {/* ACTIVE QUEUE TRACKLIST */}
+      {/* QUEUE LIST */}
       <View style={styles.listArea}>
-        <FlatList
-          ref={flatListRef}
-          data={queue}
-          keyExtractor={(item) => item.id}
-          renderItem={({ item }) => {
-            const isMatched =
-              queueSearchQuery.length > 0 &&
-              item.title.toLowerCase().includes(queueSearchQuery.toLowerCase());
-            const isCurrent = currentTrack?.id === item.id;
+        {queue.length === 0 ? (
+          <View style={styles.emptyState}>
+            <Text style={styles.emptyText}>No tracks loaded yet.</Text>
+            <Text style={styles.emptySubtext}>Add audio files to your Playlists subfolder.</Text>
+          </View>
+        ) : (
+          <FlatList
+            ref={flatListRef}
+            data={queue}
+            keyExtractor={(item) => item.id}
+            renderItem={({ item }) => {
+              const isMatched =
+                queueSearchQuery.length > 0 &&
+                item.title.toLowerCase().includes(queueSearchQuery.toLowerCase());
+              const isCurrent = currentTrack?.id === item.id;
 
-            return (
-              <TouchableOpacity
-                style={[
-                  styles.trackRow,
-                  isMatched && styles.searchHighlightRow,
-                  isCurrent && styles.activePlayingRow,
-                ]}
-                onPress={() => setCurrentTrack(item)}
-              >
-                <Text style={styles.trackTitle}>{safeRenderTitle(item.title)}</Text>
-                <Text style={styles.playlistTag}>{item.playlistName}</Text>
-              </TouchableOpacity>
-            );
-          }}
-        />
+              return (
+                <TouchableOpacity
+                  style={[
+                    styles.trackRow,
+                    isMatched && styles.searchHighlightRow,
+                    isCurrent && styles.activePlayingRow,
+                  ]}
+                  onPress={() => setCurrentTrack(item)}
+                >
+                  <Text style={styles.trackTitle}>{safeRenderTitle(item.title)}</Text>
+                  <Text style={styles.playlistTag}>{item.playlistName}</Text>
+                </TouchableOpacity>
+              );
+            }}
+          />
+        )}
       </View>
 
-      {/* SEARCH MODAL OVERLAY */}
+      {/* SEARCH MODAL */}
       <Modal
         visible={isGlobalSearchActive || isPlaylistModalOpen}
         animationType="fade"
@@ -257,17 +270,16 @@ export default function App(): JSX.Element {
         </View>
       </Modal>
 
-      {/* PINNED BOTTOM STORAGE PATH INDICATOR */}
+      {/* FOOTER */}
       <View style={styles.pathFooter}>
         <Text style={styles.pathFooterText} numberOfLines={1}>
-          Storage Path: {ROOT_PATH}
+          Storage Path: {rootPath}
         </Text>
       </View>
     </SafeAreaView>
   );
 }
 
-// --- VISUAL SYSTEM & COLOR PALETTE STYLES ---
 const styles = StyleSheet.create({
   container: {
     flex: 1,
@@ -339,6 +351,20 @@ const styles = StyleSheet.create({
   listArea: {
     flex: 1,
     paddingHorizontal: 12,
+  },
+  emptyState: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  emptyText: {
+    color: '#888888',
+    fontSize: 16,
+  },
+  emptySubtext: {
+    color: '#444444',
+    fontSize: 12,
+    marginTop: 4,
   },
   trackRow: {
     padding: 14,
