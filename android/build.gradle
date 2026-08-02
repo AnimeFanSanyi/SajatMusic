@@ -24,9 +24,9 @@ plugins {
 subprojects {
     configurations.all {
         resolutionStrategy {
-            force "org.jetbrains.kotlin:kotlin-stdlib:2.1.0"
-            force "org.jetbrains.kotlin:kotlin-stdlib-jdk8:2.1.0"
-            force "org.jetbrains.kotlin:kotlin-gradle-plugin:2.1.0"
+            force "org.jetbrains.kotlin:kotlin-stdlib:$kotlinVersion"
+            force "org.jetbrains.kotlin:kotlin-stdlib-jdk8:$kotlinVersion"
+            force "org.jetbrains.kotlin:kotlin-gradle-plugin:$kotlinVersion"
         }
     }
 }
