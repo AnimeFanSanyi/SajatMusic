@@ -41,6 +41,15 @@ jobs:
       - name: Build Windows App (Release)
         run: npx react-native run-windows --arch x64 --release --no-packager --logging
 
+      # Copy missing C++ Runtime DLLs into the app directory so it runs portably
+      - name: Copy VC++ Runtime DLLs
+        shell: powershell
+        run: |
+          $crtFiles = Get-ChildItem -Path "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Redist" -Filter "*_APP.dll" -Recurse
+          foreach ($file in $crtFiles) {
+              Copy-Item -Path $file.FullName -Destination "windows\x64\Release\SajatMusic\" -Force
+          }
+
       # Compress using 7-Zip with -ssw (Ignores open file locks)
       - name: Zip Windows Release Files
         shell: powershell
