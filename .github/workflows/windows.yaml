@@ -30,6 +30,51 @@ jobs:
       - name: Setup NuGet
         uses: NuGet/setup-nuget@v2
 
+      # Auto-Resize all Windows PNG assets to exact dimensions with transparency preserved
+      - name: Auto-Resize All Windows Assets
+        shell: powershell
+        run: |
+          Add-Type -AssemblyName System.Drawing
+          $assetsDir = "windows/SajatMusic/Assets"
+
+          $dimensions = @{
+              "Square44x44Logo.scale-200.png"                   = @{W=88; H=88}
+              "Square150x150Logo.scale-200.png"                 = @{W=300; H=300}
+              "Square44x44Logo.targetsize-24_altform-unplated.png" = @{W=24; H=24}
+              "StoreLogo.png"                                   = @{W=50; H=50}
+              "SplashScreen.scale-200.png"                       = @{W=1240; H=600}
+              "LockScreenLogo.scale-200.png"                     = @{W=48; H=48}
+              "Square44x44Logo.png"                             = @{W=44; H=44}
+              "Square150x150Logo.png"                           = @{W=150; H=150}
+          }
+
+          foreach ($file in $dimensions.Keys) {
+              $path = Join-Path $assetsDir $file
+              if (Test-Path $path) {
+                  $w = $dimensions[$file].W
+                  $h = $dimensions[$file].H
+
+                  $original = [System.Drawing.Image]::FromFile((Get-Item $path).FullName)
+                  $bmp = New-Object System.Drawing.Bitmap($w, $h, [System.Drawing.Imaging.PixelFormat]::Format32bppArgb)
+                  $g = [System.Drawing.Graphics]::FromImage($bmp)
+
+                  # Retain full transparency and high quality
+                  $g.Clear([System.Drawing.Color]::Transparent)
+                  $g.InterpolationMode = [System.Drawing.Drawing2D.InterpolationMode]::HighQualityBicubic
+                  $g.SmoothingMode = [System.Drawing.Drawing2D.SmoothingMode]::HighQuality
+                  $g.PixelOffsetMode = [System.Drawing.Drawing2D.PixelOffsetMode]::HighQuality
+
+                  $g.DrawImage($original, 0, 0, $w, $h)
+
+                  $original.Dispose()
+                  $g.Dispose()
+
+                  $bmp.Save((Get-Item $path).FullName, [System.Drawing.Imaging.ImageFormat]::Png)
+                  $bmp.Dispose()
+                  Write-Host "Resized $file to ${w}x${h} (Transparent PNG)"
+              }
+          }
+
       # Restore solution & nested node_modules packages to windows/packages
       - name: Restore All NuGet Packages
         shell: powershell
