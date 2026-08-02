@@ -86,43 +86,28 @@ jobs:
           nuget restore windows/SajatMusic.sln -PackagesDirectory windows/packages
           Get-ChildItem -Path node_modules -Filter packages.config -Recurse | ForEach-Object { nuget restore $_.FullName -PackagesDirectory windows/packages }
 
-      # Bundle and build via React Native CLI
-      - name: Build Windows App (Release)
+      # Bundle and build Release AppX package via React Native CLI
+      - name: Build Windows App Package (Release)
         run: npx react-native run-windows --arch x64 --release --no-packager --logging
 
-      # Bundle all exact 64-bit UWP *_APP.dll runtime files directly into the app folder
-      - name: Copy 64-bit VC++ UWP Runtime DLLs
+      # Package the generated AppPackages installer bundle + 1-Click install script
+      - name: Prepare Windows Package Zip
         shell: powershell
         run: |
-          $exeItem = Get-ChildItem -Path "windows\x64\Release" -Recurse -Filter "SajatMusic.exe" | Select-Object -First 1
-          $targetDir = $exeItem.DirectoryName
-          Write-Host "Target directory: $targetDir"
+          $packageScript = Get-ChildItem -Path "windows" -Recurse -Filter "Add-AppDevPackage.ps1" | Select-Object -First 1
+          if ($packageScript) {
+              $targetFolder = $packageScript.DirectoryName
+              Write-Host "Packaging installer directory from: $targetFolder"
 
-          # Search specifically for _APP.dll files in Visual Studio VC Redist
-          $vcRedistDir = "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Redist\MSVC"
-          $appDlls = Get-ChildItem -Path $vcRedistDir -Recurse -Filter "*_APP.dll" -ErrorAction SilentlyContinue |
-              Where-Object { $_.FullName -match "onecore" -or $_.FullName -match "x64" }
+              # Create a 1-click batch installer file
+              $batContent = "@echo off`r`npowershell -ExecutionPolicy Bypass -File `"%~dp0Add-AppDevPackage.ps1`"`r`npause"
+              Set-Content -Path "$targetFolder\Install-SajatMusic.bat" -Value $batContent
 
-          foreach ($dll in $appDlls) {
-              Copy-Item -Path $dll.FullName -Destination $targetDir -Force
-              Write-Host "Bundled UWP DLL: $($dll.Name)"
+              7z a -ssw -r SajatMusic-Windows.zip "$targetFolder\*"
+          } else {
+              Write-Host "AppPackages script not found, falling back to Release folder..."
+              7z a -ssw -r SajatMusic-Windows.zip .\windows\x64\Release\*
           }
-
-          # Also check Windows Kits for additional UWP framework DLLs
-          $winKitsDir = "C:\Program Files (x86)\Windows Kits\10\ExtensionSDKs"
-          $kitDlls = Get-ChildItem -Path $winKitsDir -Recurse -Filter "*.dll" -ErrorAction SilentlyContinue |
-              Where-Object { $_.FullName -match "x64" -and $_.Name -like "*_APP.dll" }
-
-          foreach ($dll in $kitDlls) {
-              Copy-Item -Path $dll.FullName -Destination $targetDir -Force
-              Write-Host "Bundled Kit DLL: $($dll.Name)"
-          }
-
-      # Compress using 7-Zip with -ssw (Ignores open file locks)
-      - name: Zip Windows Release Files
-        shell: powershell
-        run: |
-          7z a -ssw -r SajatMusic-Windows.zip .\windows\x64\Release\*
 
       # Upload to GitHub Releases
       - name: Publish Windows App to GitHub Release
