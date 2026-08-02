@@ -90,28 +90,32 @@ jobs:
       - name: Build Windows App (Release)
         run: npx react-native run-windows --arch x64 --release --no-packager --logging
 
-      # Bundle all 64-bit VC++ and UWP Runtime DLLs directly into the app folder
-      - name: Copy 64-bit VC++ Runtime & APP DLLs
+      # Bundle all exact 64-bit UWP *_APP.dll runtime files directly into the app folder
+      - name: Copy 64-bit VC++ UWP Runtime DLLs
         shell: powershell
         run: |
           $exeItem = Get-ChildItem -Path "windows\x64\Release" -Recurse -Filter "SajatMusic.exe" | Select-Object -First 1
           $targetDir = $exeItem.DirectoryName
-          Write-Host "Destination folder: $targetDir"
+          Write-Host "Target directory: $targetDir"
 
-          $searchPaths = @(
-              "C:\Program Files\Microsoft Visual Studio",
-              "C:\Program Files (x86)\Windows Kits\10\ExtensionSDKs\Microsoft.VCLibs"
-          )
+          # Search specifically for _APP.dll files in Visual Studio VC Redist
+          $vcRedistDir = "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Redist\MSVC"
+          $appDlls = Get-ChildItem -Path $vcRedistDir -Recurse -Filter "*_APP.dll" -ErrorAction SilentlyContinue |
+              Where-Object { $_.FullName -match "onecore" -or $_.FullName -match "x64" }
 
-          $dllFiles = Get-ChildItem -Path $searchPaths -Recurse -Include "*.dll" -ErrorAction SilentlyContinue |
-              Where-Object { 
-                  $_.FullName -match "x64" -and 
-                  ($_.Name -like "*140*.dll" -or $_.Name -like "*VCRUNTIME*" -or $_.Name -like "*MSVCP*" -or $_.Name -like "*vccorlib*")
-              }
-
-          foreach ($dll in $dllFiles) {
+          foreach ($dll in $appDlls) {
               Copy-Item -Path $dll.FullName -Destination $targetDir -Force
-              Write-Host "Bundled $($dll.Name) into release package."
+              Write-Host "Bundled UWP DLL: $($dll.Name)"
+          }
+
+          # Also check Windows Kits for additional UWP framework DLLs
+          $winKitsDir = "C:\Program Files (x86)\Windows Kits\10\ExtensionSDKs"
+          $kitDlls = Get-ChildItem -Path $winKitsDir -Recurse -Filter "*.dll" -ErrorAction SilentlyContinue |
+              Where-Object { $_.FullName -match "x64" -and $_.Name -like "*_APP.dll" }
+
+          foreach ($dll in $kitDlls) {
+              Copy-Item -Path $dll.FullName -Destination $targetDir -Force
+              Write-Host "Bundled Kit DLL: $($dll.Name)"
           }
 
       # Compress using 7-Zip with -ssw (Ignores open file locks)
