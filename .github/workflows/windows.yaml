@@ -90,14 +90,40 @@ jobs:
       - name: Build Windows App Package (Release)
         run: npx react-native run-windows --arch x64 --release --no-packager --logging
 
-      # Package the generated AppPackages installer bundle + 1-Click install script
+      # Create Self-Signed Security Certificate and Digitally Sign the MSIX Package
+      - name: Sign MSIX Package with Security Certificate
+        shell: powershell
+        run: |
+          $packageScript = Get-ChildItem -Path "windows" -Recurse -Filter "Add-AppDevPackage.ps1" | Select-Object -First 1
+          if (-not $packageScript) {
+              Write-Host "No Add-AppDevPackage.ps1 found."
+              exit 1
+          }
+          $targetFolder = $packageScript.DirectoryName
+
+          # Create certificate
+          $cert = New-SelfSignedCertificate -Type Custom -Subject "CN=SajatMusic" -KeyUsage DigitalSignature -FriendlyName "SajatMusic" -CertStoreLocation "Cert:\CurrentUser\My"
+
+          # Export public .cer file into installer folder for Add-AppDevPackage.ps1
+          $cerPath = "$targetFolder\SajatMusic.cer"
+          Export-Certificate -Cert $cert -FilePath $cerPath
+          Write-Host "Exported security certificate to $cerPath"
+
+          # Locate signtool.exe and sign the MSIX package
+          $signtool = (Get-ChildItem -Path "C:\Program Files (x86)\Windows Kits\10\bin" -Filter "signtool.exe" -Recurse | Where-Object { $_.FullName -match "x64" } | Select-Object -First 1).FullName
+          $msixPath = (Get-ChildItem -Path $targetFolder -Filter "*.msix" | Select-Object -First 1).FullName
+          Write-Host "Signing $msixPath with SignTool..."
+
+          & $signtool sign /fd SHA256 /sha1 $($cert.Thumbprint) $msixPath
+
+      # Package the signed AppPackages installer bundle + 1-Click install script
       - name: Prepare Windows Package Zip
         shell: powershell
         run: |
           $packageScript = Get-ChildItem -Path "windows" -Recurse -Filter "Add-AppDevPackage.ps1" | Select-Object -First 1
           if ($packageScript) {
               $targetFolder = $packageScript.DirectoryName
-              Write-Host "Packaging installer directory from: $targetFolder"
+              Write-Host "Packaging signed installer directory from: $targetFolder"
 
               # Create a 1-click batch installer file
               $batContent = "@echo off`r`npowershell -ExecutionPolicy Bypass -File `"%~dp0Add-AppDevPackage.ps1`"`r`npause"
