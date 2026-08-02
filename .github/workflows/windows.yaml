@@ -1,10 +1,10 @@
 name: Build Windows App
 
 on:
-  push:
-    branches: [ main ]
-    if: false # Disable automatic builds on push to main
-  workflow_dispatch:
+  workflow_dispatch: # Only runs when manually triggered in GitHub Actions
+
+permissions:
+  contents: write
 
 jobs:
   build-windows:
@@ -37,13 +37,23 @@ jobs:
           nuget restore windows/SajatMusic.sln -PackagesDirectory windows/packages
           Get-ChildItem -Path node_modules -Filter packages.config -Recurse | ForEach-Object { nuget restore $_.FullName -PackagesDirectory windows/packages }
 
-      # Bundle and build via React Native CLI (resolves async-storage & native deps automatically)
+      # Bundle and build via React Native CLI
       - name: Build Windows App (Release)
         run: npx react-native run-windows --arch x64 --release --no-packager --logging
 
-      # Upload Artifacts
-      - name: Upload Windows Bundle
-        uses: actions/upload-artifact@v4
+      # Compress Windows Build Output into a Zip file
+      - name: Zip Windows Release Files
+        shell: powershell
+        run: |
+          Compress-Archive -Path windows/x64/Release/* -DestinationPath SajatMusic-Windows.zip
+
+      # Upload to GitHub Releases
+      - name: Publish Windows App to GitHub Release
+        uses: softprops/action-gh-release@v2
         with:
-          name: SajatMusic-Windows-Installer
-          path: windows/x64/Release/
+          tag_name: v1.0.0
+          name: Latest SajatMusic Release
+          body: "Download the latest compiled Android APK or Windows build below."
+          files: SajatMusic-Windows.zip
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
