@@ -90,7 +90,7 @@ jobs:
       - name: Build Windows App Package (Release)
         run: npx react-native run-windows --arch x64 --release --no-packager --logging
 
-      # Create Self-Signed Security Certificate and Digitally Sign the MSIX Package
+      # Create Code Signing Certificate matching Package.appxmanifest and sign MSIX
       - name: Sign MSIX Package with Security Certificate
         shell: powershell
         run: |
@@ -101,20 +101,26 @@ jobs:
           }
           $targetFolder = $packageScript.DirectoryName
 
-          # Create certificate
-          $cert = New-SelfSignedCertificate -Type Custom -Subject "CN=SajatMusic" -KeyUsage DigitalSignature -FriendlyName "SajatMusic" -CertStoreLocation "Cert:\CurrentUser\My"
+          # 1. Parse Publisher dynamically from Package.appxmanifest
+          $manifestPath = Get-ChildItem -Path "windows" -Recurse -Filter "Package.appxmanifest" | Select-Object -First 1
+          [xml]$manifest = Get-Content $manifestPath.FullName
+          $publisher = $manifest.Package.Identity.Publisher
+          Write-Host "Using manifest publisher: $publisher"
 
-          # Export public .cer file into installer folder for Add-AppDevPackage.ps1
+          # 2. Create Code Signing certificate with official Code Signing EKU (1.3.6.1.5.5.7.3.3)
+          $cert = New-SelfSignedCertificate -Type Custom -Subject $publisher -KeyUsage DigitalSignature -FriendlyName "SajatMusic" -CertStoreLocation "Cert:\CurrentUser\My" -TextExtension @("2.5.29.37={text}1.3.6.1.5.5.7.3.3")
+
+          # 3. Export public .cer file into installer folder for Add-AppDevPackage.ps1
           $cerPath = "$targetFolder\SajatMusic.cer"
           Export-Certificate -Cert $cert -FilePath $cerPath
           Write-Host "Exported security certificate to $cerPath"
 
-          # Locate signtool.exe and sign the MSIX package
-          $signtool = (Get-ChildItem -Path "C:\Program Files (x86)\Windows Kits\10\bin" -Filter "signtool.exe" -Recurse | Where-Object { $_.FullName -match "x64" } | Select-Object -First 1).FullName
+          # 4. Sign the MSIX package using PowerShell Authenticode
           $msixPath = (Get-ChildItem -Path $targetFolder -Filter "*.msix" | Select-Object -First 1).FullName
-          Write-Host "Signing $msixPath with SignTool..."
+          Write-Host "Signing $msixPath with certificate..."
 
-          & $signtool sign /fd SHA256 /sha1 $($cert.Thumbprint) $msixPath
+          $status = Set-AuthenticodeSignature -FilePath $msixPath -Certificate $cert
+          Write-Host "Signature result: $($status.StatusMessage)"
 
       # Package the signed AppPackages installer bundle + 1-Click install script
       - name: Prepare Windows Package Zip
