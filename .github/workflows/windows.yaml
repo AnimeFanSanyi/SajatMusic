@@ -40,12 +40,17 @@ jobs:
           $dimensions = @{
               "Square44x44Logo.scale-200.png"                   = @{W=88; H=88}
               "Square150x150Logo.scale-200.png"                 = @{W=300; H=300}
+              "Wide310x150Logo.scale-200.png"                  = @{W=620; H=300}
+              "Square71x71Logo.scale-200.png"                   = @{W=142; H=142}
+              "Square310x310Logo.scale-200.png"                 = @{W=620; H=620}
               "Square44x44Logo.targetsize-24_altform-unplated.png" = @{W=24; H=24}
               "StoreLogo.png"                                   = @{W=50; H=50}
+              "StoreLogo.scale-200.png"                         = @{W=100; H=100}
               "SplashScreen.scale-200.png"                       = @{W=1240; H=600}
               "LockScreenLogo.scale-200.png"                     = @{W=48; H=48}
               "Square44x44Logo.png"                             = @{W=44; H=44}
               "Square150x150Logo.png"                           = @{W=150; H=150}
+              "Wide310x150Logo.png"                            = @{W=310; H=150}
           }
 
           foreach ($file in $dimensions.Keys) {
