@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState } from 'react';
 import {
   SafeAreaView,
   StatusBar,
@@ -11,144 +11,37 @@ import {
   StyleSheet,
   Platform,
 } from 'react-native';
-import * as RNFS from 'react-native-fs';
-
-declare const window: any;
 
 interface Track {
   id: string;
   title: string;
   playlistName: string;
-  path: string;
 }
 
 export default function App(): JSX.Element {
-  // --- SAFE PATH GENERATOR ---
-  const getRootPath = () => {
-    try {
-      if (Platform.OS === 'windows') {
-        const docDir = RNFS.DocumentDirectoryPath || 'C:\\AppRootFolder\\Playlists';
-        return `${docDir}\\AppRootFolder\\Playlists`;
-      }
-      return `${RNFS.ExternalStorageDirectoryPath || ''}/Music/AppRootFolder/Playlists`;
-    } catch {
-      return 'C:\\AppRootFolder\\Playlists';
-    }
-  };
+  // Demo Tracks (Ready for local playlist integration)
+  const [tracks, setTracks] = useState<Track[]>([
+    { id: '1', title: 'Song One.mp3', playlistName: 'Favorites' },
+    { id: '2', title: 'Song Two.flac', playlistName: 'Rock' },
+    { id: '3', title: 'Song Three.wav', playlistName: 'Favorites' },
+  ]);
 
-  const rootPath = getRootPath();
-
-  // --- STATES ---
-  const [tracks, setTracks] = useState<Track[]>([]);
-  const [queue, setQueue] = useState<Track[]>([]);
+  const [queue, setQueue] = useState<Track[]>(tracks);
   const [currentTrack, setCurrentTrack] = useState<Track | null>(null);
-  const [isPlaying, setIsPlaying] = useState<boolean>(false);
 
   // Search & Modal States
   const [globalSearchQuery, setGlobalSearchQuery] = useState('');
   const [queueSearchQuery, setQueueSearchQuery] = useState('');
   const [isGlobalSearchActive, setIsGlobalSearchActive] = useState(false);
-  const [isPlaylistModalOpen, setIsPlaylistModalOpen] = useState(false);
-  const [isInputFocused, setIsInputFocused] = useState(false);
 
-  const flatListRef = useRef<FlatList>(null);
-
-  // --- AUTO-DIRECTORY SCANNER ---
-  useEffect(() => {
-    scanDirectory();
-  }, []);
-
-  const scanDirectory = async () => {
-    try {
-      if (!RNFS || !RNFS.exists) return;
-
-      const exists = await RNFS.exists(rootPath);
-      if (!exists) {
-        await RNFS.mkdir(rootPath);
-      }
-
-      const playlistItems = await RNFS.readDir(rootPath);
-      const playlistFolders = playlistItems.filter((item) => item.isDirectory());
-
-      let loadedTracks: Track[] = [];
-
-      for (const folder of playlistFolders) {
-        const folderFiles = await RNFS.readDir(folder.path);
-        const audioFiles = folderFiles.filter((file) =>
-          /\.(mp3|m4a|mp4|flac|wav|ogg|aac)$/i.test(file.name)
-        );
-
-        const folderTracks: Track[] = audioFiles.map((file) => ({
-          id: file.path,
-          title: file.name,
-          playlistName: folder.name,
-          path: file.path,
-        }));
-
-        loadedTracks = [...loadedTracks, ...folderTracks];
-      }
-
-      setTracks(loadedTracks);
-      setQueue(loadedTracks.slice(0, 10));
-    } catch (err) {
-      console.warn('Directory scan caught:', err);
-    }
-  };
-
-  // --- SAFE CHARACTER FAULT HANDLER ---
-  const safeRenderTitle = (rawTitle: string): string => {
-    try {
-      const decoded = decodeURIComponent(rawTitle);
-      for (let i = 0; i < decoded.length; i++) {
-        if (decoded.charCodeAt(i) === 0xfffd) {
-          return `[Encoding Error @ Char #${i}]`;
-        }
-      }
-      return decoded;
-    } catch {
-      return `[Encoding Error @ Char #0]`;
-    }
-  };
-
-  // --- KEYBOARD SHORTCUTS ---
-  useEffect(() => {
-    if (Platform.OS === 'windows') {
-      const handleKeyDown = (event: any) => {
-        if (event.code === 'Space' && !isInputFocused) {
-          event.preventDefault();
-          setIsPlaying((prev) => !prev);
-        }
-        if (event.code === 'Escape') {
-          setIsPlaylistModalOpen(false);
-          setIsGlobalSearchActive(false);
-        }
-      };
-
-      if (typeof window !== 'undefined' && window.addEventListener) {
-        window.addEventListener('keydown', handleKeyDown);
-        return () => window.removeEventListener('keydown', handleKeyDown);
-      }
-    }
-  }, [isInputFocused]);
-
-  // --- QUEUE SHUFFLE ---
-  const shuffleQueue = (trackList: Track[]) => {
-    const shuffled = [...trackList];
+  // Queue Shuffle
+  const shuffleQueue = () => {
+    const shuffled = [...queue];
     for (let i = shuffled.length - 1; i > 0; i--) {
       const j = Math.floor(Math.random() * (i + 1));
       [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
     }
-    setQueue(shuffled.slice(0, 10));
-  };
-
-  const handleQueueSearchSubmit = () => {
-    if (!queueSearchQuery.trim()) return;
-    const matchIndex = queue.findIndex((t) =>
-      t.title.toLowerCase().includes(queueSearchQuery.toLowerCase())
-    );
-    if (matchIndex !== -1 && flatListRef.current) {
-      flatListRef.current.scrollToIndex({ index: matchIndex, animated: true });
-    }
+    setQueue(shuffled);
   };
 
   return (
@@ -161,12 +54,10 @@ export default function App(): JSX.Element {
         <View style={styles.searchRow}>
           <TextInput
             style={styles.searchInput}
-            placeholder="Global Search (Enter to run)..."
+            placeholder="Global Search..."
             placeholderTextColor="#666"
             value={globalSearchQuery}
             onChangeText={setGlobalSearchQuery}
-            onFocus={() => setIsInputFocused(true)}
-            onBlur={() => setIsInputFocused(false)}
             onSubmitEditing={() => setIsGlobalSearchActive(true)}
           />
           <TouchableOpacity
@@ -178,77 +69,54 @@ export default function App(): JSX.Element {
         </View>
       </View>
 
-      {/* QUEUE SEARCH & SHUFFLE */}
+      {/* QUEUE CONTROLS */}
       <View style={styles.subControlBar}>
         <TextInput
           style={styles.subSearchInput}
-          placeholder="Queue Search (Real-time highlight)..."
+          placeholder="Queue Search..."
           placeholderTextColor="#555"
           value={queueSearchQuery}
           onChangeText={setQueueSearchQuery}
-          onFocus={() => setIsInputFocused(true)}
-          onBlur={() => setIsInputFocused(false)}
-          onSubmitEditing={handleQueueSearchSubmit}
         />
-        <TouchableOpacity style={styles.textButton} onPress={() => shuffleQueue(tracks)}>
+        <TouchableOpacity style={styles.textButton} onPress={shuffleQueue}>
           <Text style={styles.textButtonText}>Shuffle Queue</Text>
         </TouchableOpacity>
       </View>
 
-      {/* QUEUE LIST */}
+      {/* QUEUE TRACK LIST */}
       <View style={styles.listArea}>
-        {queue.length === 0 ? (
-          <View style={styles.emptyState}>
-            <Text style={styles.emptyText}>No tracks loaded yet.</Text>
-            <Text style={styles.emptySubtext}>Add audio files to your Playlists subfolder.</Text>
-          </View>
-        ) : (
-          <FlatList
-            ref={flatListRef}
-            data={queue}
-            keyExtractor={(item) => item.id}
-            renderItem={({ item }) => {
-              const isMatched =
-                queueSearchQuery.length > 0 &&
-                item.title.toLowerCase().includes(queueSearchQuery.toLowerCase());
-              const isCurrent = currentTrack?.id === item.id;
-
-              return (
-                <TouchableOpacity
-                  style={[
-                    styles.trackRow,
-                    isMatched && styles.searchHighlightRow,
-                    isCurrent && styles.activePlayingRow,
-                  ]}
-                  onPress={() => setCurrentTrack(item)}
-                >
-                  <Text style={styles.trackTitle}>{safeRenderTitle(item.title)}</Text>
-                  <Text style={styles.playlistTag}>{item.playlistName}</Text>
-                </TouchableOpacity>
-              );
-            }}
-          />
-        )}
+        <FlatList
+          data={queue.filter((t) =>
+            t.title.toLowerCase().includes(queueSearchQuery.toLowerCase())
+          )}
+          keyExtractor={(item) => item.id}
+          renderItem={({ item }) => {
+            const isCurrent = currentTrack?.id === item.id;
+            return (
+              <TouchableOpacity
+                style={[styles.trackRow, isCurrent && styles.activePlayingRow]}
+                onPress={() => setCurrentTrack(item)}
+              >
+                <Text style={styles.trackTitle}>{item.title}</Text>
+                <Text style={styles.playlistTag}>{item.playlistName}</Text>
+              </TouchableOpacity>
+            );
+          }}
+        />
       </View>
 
-      {/* SEARCH MODAL */}
+      {/* GLOBAL SEARCH MODAL */}
       <Modal
-        visible={isGlobalSearchActive || isPlaylistModalOpen}
+        visible={isGlobalSearchActive}
         animationType="fade"
         transparent={true}
-        onRequestClose={() => {
-          setIsGlobalSearchActive(false);
-          setIsPlaylistModalOpen(false);
-        }}
+        onRequestClose={() => setIsGlobalSearchActive(false)}
       >
         <View style={styles.modalOverlay}>
           <View style={styles.modalContainer}>
             <TouchableOpacity
               style={styles.closeXButton}
-              onPress={() => {
-                setIsGlobalSearchActive(false);
-                setIsPlaylistModalOpen(false);
-              }}
+              onPress={() => setIsGlobalSearchActive(false)}
             >
               <Text style={styles.closeXText}>✕</Text>
             </TouchableOpacity>
@@ -261,7 +129,7 @@ export default function App(): JSX.Element {
               keyExtractor={(item) => item.id}
               renderItem={({ item }) => (
                 <View style={styles.modalTrackRow}>
-                  <Text style={styles.trackTitle}>{safeRenderTitle(item.title)}</Text>
+                  <Text style={styles.trackTitle}>{item.title}</Text>
                   <Text style={styles.playlistSubtext}>Playlist: {item.playlistName}</Text>
                 </View>
               )}
@@ -272,8 +140,8 @@ export default function App(): JSX.Element {
 
       {/* FOOTER */}
       <View style={styles.pathFooter}>
-        <Text style={styles.pathFooterText} numberOfLines={1}>
-          Storage Path: {rootPath}
+        <Text style={styles.pathFooterText}>
+          {currentTrack ? `Now Selected: ${currentTrack.title}` : 'SajatMusic Ready'}
         </Text>
       </View>
     </SafeAreaView>
@@ -352,20 +220,6 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingHorizontal: 12,
   },
-  emptyState: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  emptyText: {
-    color: '#888888',
-    fontSize: 16,
-  },
-  emptySubtext: {
-    color: '#444444',
-    fontSize: 12,
-    marginTop: 4,
-  },
   trackRow: {
     padding: 14,
     borderBottomWidth: 1,
@@ -374,12 +228,10 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
   },
-  searchHighlightRow: {
-    backgroundColor: 'rgba(128, 0, 128, 0.25)',
-  },
   activePlayingRow: {
     borderLeftWidth: 4,
     borderLeftColor: '#6b21a8',
+    backgroundColor: 'rgba(107, 33, 168, 0.15)',
   },
   trackTitle: {
     color: '#FFFFFF',
